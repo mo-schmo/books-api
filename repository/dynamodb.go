@@ -47,7 +47,7 @@ func ScanUsers(w http.ResponseWriter, r *http.Request) {
 		TableName: aws.String("Users"),
 	})
 	if err != nil {
-		log.Fatal("Error scanning table: ", err)
+		w.WriteHeader(http.StatusBadRequest)
 	}
 
 	var users []entity.Users
@@ -61,6 +61,6 @@ func ScanUsers(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+	w.Header().Set("Content-Type", "application/json")
 	w.Write(b)
-	w.WriteHeader(http.StatusOK)
 }

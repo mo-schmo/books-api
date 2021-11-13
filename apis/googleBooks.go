@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/gorilla/mux"
 )
@@ -39,4 +40,28 @@ func GetVolume(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(bookJson)
+}
+
+func SearchBook(w http.ResponseWriter, r *http.Request) {
+	query := Query{}
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	err := decoder.Decode(&query)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+	}
+	fmt.Printf("Searching for book with query: %s\n", query.Query)
+	var formattedQuery string
+	if len(query.Query) > 0 {
+		formattedQuery := strings.ReplaceAll(query.Query, " ", "+")
+		fmt.Printf("Formatted query: %s\n", formattedQuery)
+	}
+
+	url := fmt.Sprintf("%s/volumes?q=%s&key=%s", GOOGLE_API_URL, formattedQuery, os.Getenv("GOOGLE_API_KEY"))
+	fmt.Println(url)
+}
+
+type Query struct {
+	Query string `json:"query"`
+	Isbn  string `json:"isbn"`
 }

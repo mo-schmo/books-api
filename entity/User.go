@@ -1,6 +1,6 @@
 package entity
 
-type Users struct {
+type User struct {
 	Username     string `dynamodbav:"Username" json:"Username"`
 	Email        string `dynamodbav:"Email" json:"Email"`
 	First        string `dynamodbav:"First_Name" json:"First_Name"`

@@ -16,9 +16,11 @@ const API_BASE_PATH = "api"
 func main() {
 	routes := mux.NewRouter()
 	routes.HandleFunc(createPath("users"), repository.ScanUsers).Methods("GET")
-	routes.HandleFunc("/api/book/{bookId}", apis.GetVolume)
+	routes.HandleFunc(createPath("users/{userId}"), repository.GetUser).Methods("GET")
+	routes.HandleFunc(createPath("book/{bookId}"), apis.GetVolume)
+	routes.HandleFunc(createPath("search"), apis.SearchBook)
 
-	fmt.Printf("Server is running on port %s\n", "8083")
+	fmt.Printf("Server is running on port %s\n", "8083")	
 	http.ListenAndServe(":8083", cors.MiddleWare(routes))
 }
 

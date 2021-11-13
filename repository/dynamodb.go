@@ -4,6 +4,7 @@ import (
 	"booksApi/entity"
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/gorilla/mux"
 )
 
 func createDynamoDBClient() *dynamodb.Client {
@@ -22,22 +24,43 @@ func createDynamoDBClient() *dynamodb.Client {
 	return dynamodb.NewFromConfig(cfg)
 }
 
-func GetItem(tableName string, id string) (*dynamodb.GetItemOutput, error) {
+func GetUser(w http.ResponseWriter, r *http.Request) {
 	dynamoDBClient := createDynamoDBClient()
+	params := mux.Vars(r)
+	userId := params["userId"]
 
-	out, err := dynamoDBClient.GetItem(context.TODO(), &dynamodb.GetItemInput{
+	res, err := dynamoDBClient.GetItem(context.TODO(), &dynamodb.GetItemInput{
 		TableName: aws.String("Users"),
 		Key: map[string]types.AttributeValue{
-			"Username": &types.AttributeValueMemberS{Value: "admin"},
+			"Username": &types.AttributeValueMemberS{Value: userId},
 		},
 	})
 
-	if err != nil {
-		log.Fatal(err)
-		return nil, err
+	if res.Item == nil {
+		w.Write([]byte(fmt.Sprintf("No account found with userId: %s", userId)))
+		return
 	}
 
-	return out, nil
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	user := entity.User{}
+	err = attributevalue.UnmarshalMap(res.Item, &user)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	ret, err := json.Marshal(user)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(ret)
 }
 
 func ScanUsers(w http.ResponseWriter, r *http.Request) {
@@ -50,7 +73,7 @@ func ScanUsers(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 	}
 
-	var users []entity.Users
+	var users []entity.User
 	err = attributevalue.UnmarshalListOfMaps(res.Items, &users)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)

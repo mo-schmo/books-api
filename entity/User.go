@@ -8,5 +8,4 @@ type User struct {
 	Created_Timestamp string `dynamodbav:"Created_Timestamp" json:"Created_Timestamp"`
 	Updated_Timestamp string `dynamodbav:"Updated_Timestamp" json:"Updated_Timestamp"`
 	Hash              string `dynamodbav:"Hash" json:"Hash"`
-	Password          string
 }

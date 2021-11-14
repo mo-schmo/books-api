@@ -19,6 +19,8 @@ import (
 	"github.com/gorilla/mux"
 )
 
+// Reference: https://dynobase.dev/dynamodb-golang-query-examples/#get-item
+
 func createDynamoDBClient() *dynamodb.Client {
 	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
@@ -88,45 +90,44 @@ func ScanUsers(w http.ResponseWriter, r *http.Request) {
 func RegisterUser(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodPost:
-		var user entity.User
+		var userPayload struct {
+			entity.User
+			Password string
+		}
+
 		body, err := ioutil.ReadAll(r.Body)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		err = json.Unmarshal(body, &user)
+		err = json.Unmarshal(body, &userPayload)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		if user == (entity.User{}) {
+		if userPayload == (struct {
+			entity.User
+			Password string
+		}{}) {
 			fmt.Println("Empty body")
 			return
 		}
 
-		// Check if user already exists in table
-		res, _ := getUserFromTable(user.Username)
-		if res.Item != nil {
-			fmt.Println("User already exists and/or could not be created")
-			w.WriteHeader(http.StatusBadRequest)
+		now := time.Now().UTC().Format("2006-01-02T15:04:05Z07:00")
+		userPayload.Created_Timestamp = now
+		userPayload.Updated_Timestamp = now
+
+		hashedPassword, err := util.HashPassword(userPayload.Password)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-
-		// Continue if user does not already exists
-		now := time.Now().UTC().Format("2006-01-02T15:04:05Z07:00")
-		user.Created_Timestamp = now
-		user.Updated_Timestamp = now
-
-		fmt.Println("Password: ", user.Password)
-		hashedPassword, err := util.HashPassword(user.Password)
+		userPayload.Hash = hashedPassword
+		fmt.Printf("%+v\n", userPayload.User)
+		_, err = addUserToTable(&userPayload.User)
 		if err != nil {
-			fmt.Println("Error hashing password: ", err)
-		}
-		user.Hash = hashedPassword
-		fmt.Printf("%+v\n", user)
-		_, err = addUserToTable(&user)
-		if err != nil {
-			w.WriteHeader(http.StatusNotFound)
+			fmt.Println(err)
+			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 		w.WriteHeader(http.StatusCreated)
@@ -144,8 +145,9 @@ func addUserToTable(user *entity.User) (*dynamodb.PutItemOutput, error) {
 		return nil, err
 	}
 	res, err := dynamodbClient.PutItem(context.TODO(), &dynamodb.PutItemInput{
-		TableName: aws.String("Users"),
-		Item:      marshaledUser,
+		TableName:           aws.String("Users"),
+		Item:                marshaledUser,
+		ConditionExpression: aws.String("attribute_not_exists(Username)"),
 	})
 	return res, err
 }

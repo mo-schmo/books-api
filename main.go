@@ -16,6 +16,7 @@ const API_BASE_PATH = "api"
 func main() {
 	routes := mux.NewRouter()
 	routes.HandleFunc(createPath("register"), repository.RegisterUser).Methods("POST")
+	routes.HandleFunc(createPath("login"), repository.ValidateUser).Methods("GET")
 	routes.HandleFunc(createPath("users"), repository.ScanUsers).Methods("GET")
 	routes.HandleFunc(createPath("users/{userId}"), repository.GetUser).Methods("GET")
 	routes.HandleFunc(createPath("book/{bookId}"), apis.GetVolume)

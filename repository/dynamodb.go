@@ -123,10 +123,8 @@ func RegisterUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		userPayload.Hash = hashedPassword
-		fmt.Printf("%+v\n", userPayload.User)
 		_, err = addUserToTable(&userPayload.User)
 		if err != nil {
-			fmt.Println(err)
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
@@ -134,8 +132,58 @@ func RegisterUser(w http.ResponseWriter, r *http.Request) {
 		return
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
 	}
+}
 
+func ValidateUser(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		var payload struct {
+			Username string
+			Password string
+		}
+
+		body, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		err = json.Unmarshal(body, &payload)
+		if err != nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		dynamodbClient := createDynamoDBClient()
+		res, err := dynamodbClient.GetItem(context.TODO(), &dynamodb.GetItemInput{
+			TableName: aws.String("Users"),
+			Key: map[string]types.AttributeValue{
+				"Username": &types.AttributeValueMemberS{Value: payload.Username},
+			},
+			ProjectionExpression: aws.String("Hashkey"),
+		})
+		if err != nil {
+			fmt.Println(err)
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		var hash string
+		err = attributevalue.Unmarshal(res.Item["Hashkey"], &hash)
+		if err != nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		isValid := util.ComparePasswordHash(payload.Password, hash)
+		if !isValid {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		return
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
 }
 
 func addUserToTable(user *entity.User) (*dynamodb.PutItemOutput, error) {

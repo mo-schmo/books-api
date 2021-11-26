@@ -139,19 +139,15 @@ func RegisterUser(w http.ResponseWriter, r *http.Request) {
 func ValidateUser(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		var payload struct {
-			Username string
-			Password string
-		}
-
-		body, err := ioutil.ReadAll(r.Body)
-		if err != nil {
-			w.WriteHeader(http.StatusUnauthorized)
+		params := r.URL.Query()
+		if len(params) < 2 {
+			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		err = json.Unmarshal(body, &payload)
-		if err != nil {
-			w.WriteHeader(http.StatusUnauthorized)
+		username := params.Get("username")
+		password := params.Get("password")
+		if len(password) < 1 || len(username) < 1 {
+			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 
@@ -159,7 +155,7 @@ func ValidateUser(w http.ResponseWriter, r *http.Request) {
 		res, err := dynamodbClient.GetItem(context.TODO(), &dynamodb.GetItemInput{
 			TableName: aws.String("Users"),
 			Key: map[string]types.AttributeValue{
-				"Username": &types.AttributeValueMemberS{Value: payload.Username},
+				"Username": &types.AttributeValueMemberS{Value: username},
 			},
 			ProjectionExpression: aws.String("Hashkey"),
 		})
@@ -174,7 +170,7 @@ func ValidateUser(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
-		isValid := util.ComparePasswordHash(payload.Password, hash)
+		isValid := util.ComparePasswordHash(password, hash)
 		if !isValid {
 			w.WriteHeader(http.StatusUnauthorized)
 			return

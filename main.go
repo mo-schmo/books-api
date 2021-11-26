@@ -21,9 +21,10 @@ func main() {
 	routes.HandleFunc(createPath("users/{userId}"), repository.GetUser).Methods("GET")
 	routes.HandleFunc(createPath("book/{bookId}"), apis.GetVolume)
 	routes.HandleFunc(createPath("search"), apis.SearchBook)
+	routes.Use(cors.MiddleWare)
 
 	fmt.Printf("Server is running on port %s\n", "8083")
-	http.ListenAndServe(":8083", cors.MiddleWare(routes))
+	http.ListenAndServe(":8083", routes)
 }
 
 func createPath(path string) string {
